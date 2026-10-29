@@ -148,8 +148,8 @@ private:
   // Shared across instances using the same model file via ICaloCellConstantsSvc.
   std::shared_ptr<Ort::Session> m_ortSession{nullptr};
   // Handle to the shared constants service used to cache the ONNX session.
-  ServiceHandle<k4::recCalo::ICaloCellConstantsSvc> m_constantsSvc{
-      this, "CaloCellConstantsSvc", "k4::recCalo::CaloCellConstantsSvc", ""};
+  ServiceHandle<k4::recCalo::ICaloCellConstantsSvc> m_constantsSvc{this, "CaloCellConstantsSvc",
+                                                                   "k4::recCalo::CaloCellConstantsSvc", ""};
   // Input and output names for the ONNX model, used to identify tensors during inference
   std::vector<const char*> m_input_names;
   std::vector<const char*> m_output_names;
