@@ -5,10 +5,12 @@
 DECLARE_COMPONENT(SimulateSiPMwithEdep)
 
 SimulateSiPMwithEdep::SimulateSiPMwithEdep(const std::string& aName, ISvcLocator* aSvcLoc)
-    : MultiTransformer(aName, aSvcLoc, {KeyValue("inputHitCollection", "DRcaloSiPMreadout_scint")},
-                       {KeyValue("outputHitCollection", "DRcaloSiPMreadoutDigiHit_scint"),
-                        KeyValue("outputTimeStructCollection", "DRcaloSiPMreadoutDigiWaveform_scint"),
-                        KeyValue("outputHitLinkCollection", "DRcaloSiPMreadoutDigiHit_scint_link")}) {}
+    : MultiTransformer(
+          aName, aSvcLoc,
+          {KeyValue("inputHitCollection", "DRcaloSiPMreadout_scint"), KeyValue("inputHeaderCollection", "EventHeader")},
+          {KeyValue("outputHitCollection", "DRcaloSiPMreadoutDigiHit_scint"),
+           KeyValue("outputTimeStructCollection", "DRcaloSiPMreadoutDigiWaveform_scint"),
+           KeyValue("outputHitLinkCollection", "DRcaloSiPMreadoutDigiHit_scint_link")}) {}
 
 StatusCode SimulateSiPMwithEdep::initialize() {
   StatusCode sc = MultiTransformer::initialize();
@@ -57,6 +59,12 @@ StatusCode SimulateSiPMwithEdep::initialize() {
     error() << "SimulateSiPMwithEdep: "
                "The filter efficiency vector size should be equal to the wavelength vector size"
             << endmsg;
+    return StatusCode::FAILURE;
+  }
+
+  m_uidSvc = service<IUniqueIDGenSvc>("UniqueIDGenSvc", true);
+  if (!m_uidSvc) {
+    error() << "Unable to get UniqueIDGenSvc" << endmsg;
     return StatusCode::FAILURE;
   }
 
@@ -136,8 +144,13 @@ std::vector<double> SimulateSiPMwithEdep::integral(const std::vector<double>& wa
   return result;
 }
 
-SimulateSiPMwithEdepOutput
-SimulateSiPMwithEdep::operator()(const edm4hep::SimCalorimeterHitCollection& scintHits) const {
+SimulateSiPMwithEdepOutput SimulateSiPMwithEdep::operator()(const edm4hep::SimCalorimeterHitCollection& scintHits,
+                                                            const edm4hep::EventHeaderCollection& headers) const {
+  // Seed the SimSiPM generator from (run, event, algorithm name), so that the result does not depend
+  // on the processing order of the events and is reproducible from job to job
+  const uint64_t seed = m_uidSvc->getUniqueID(headers, name());
+  m_sensor->rng().seed(seed != 0 ? seed : 1); // a zero seed is not allowed by SimSiPM
+
   edm4hep::CalorimeterHitCollection digiHits;
   edm4hep::TimeSeriesCollection waveforms;
   edm4hep::CaloHitSimCaloHitLinkCollection hitLinks;

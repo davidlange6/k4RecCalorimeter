@@ -9,7 +9,8 @@ SimulateSiPMwithOpticalPhoton::SimulateSiPMwithOpticalPhoton(const std::string& 
     : MultiTransformer(aName, aSvcLoc,
                        {KeyValue("inputHitCollection", "DRcaloSiPMreadoutSimHit"),
                         KeyValue("inputTimeStructCollection", "DRcaloSiPMreadoutTimeStruct"),
-                        KeyValue("inputWavlenCollection", "DRcaloSiPMreadoutWaveLen")},
+                        KeyValue("inputWavlenCollection", "DRcaloSiPMreadoutWaveLen"),
+                        KeyValue("inputHeaderCollection", "EventHeader")},
                        {KeyValue("outputHitCollection", "DRcaloSiPMreadoutDigiHit"),
                         KeyValue("outputTimeStructCollection", "DRcaloSiPMreadoutDigiWaveform")}) {}
 
@@ -30,6 +31,12 @@ StatusCode SimulateSiPMwithOpticalPhoton::initialize() {
 
   if (m_rndmUniform.initialize(m_randSvc, Rndm::Flat(0., 1.)).isFailure()) {
     error() << "Couldn't initialize RndmGenSvc!" << endmsg;
+    return StatusCode::FAILURE;
+  }
+
+  m_uidSvc = service<IUniqueIDGenSvc>("UniqueIDGenSvc", true);
+  if (!m_uidSvc) {
+    error() << "Unable to get UniqueIDGenSvc" << endmsg;
     return StatusCode::FAILURE;
   }
 
@@ -93,10 +100,14 @@ std::vector<double> SimulateSiPMwithOpticalPhoton::integral(const std::vector<do
   return result;
 }
 
-SimulateSiPMwithOpticalPhotonOutput
-SimulateSiPMwithOpticalPhoton::operator()(const edm4hep::SimCalorimeterHitCollection& simHits,
-                                          const edm4hep::RawTimeSeriesCollection& timeStructs,
-                                          const edm4hep::RawTimeSeriesCollection& waveLenStructs) const {
+SimulateSiPMwithOpticalPhotonOutput SimulateSiPMwithOpticalPhoton::operator()(
+    const edm4hep::SimCalorimeterHitCollection& simHits, const edm4hep::RawTimeSeriesCollection& timeStructs,
+    const edm4hep::RawTimeSeriesCollection& waveLenStructs, const edm4hep::EventHeaderCollection& headers) const {
+  // Seed the SimSiPM generator from (run, event, algorithm name), so that the result does not depend
+  // on the processing order of the events and is reproducible from job to job
+  const uint64_t seed = m_uidSvc->getUniqueID(headers, name());
+  m_sensor->rng().seed(seed != 0 ? seed : 1); // a zero seed is not allowed by SimSiPM
+
   // Create output collections
   edm4hep::TimeSeriesCollection waveforms;
   edm4hep::CalorimeterHitCollection digiHits;

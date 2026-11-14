@@ -16,6 +16,7 @@
 // geometry (needed for timing, based on the distance btn the step and the rear end of the fiber)
 #include "detectorSegmentations/GridDRcalo_k4geo.h"
 #include "k4Interface/IGeoSvc.h"
+#include "k4Interface/IUniqueIDGenSvc.h"
 
 // Check for SiPMSensor header location (similar to how DigiSiPM handles this)
 #if __has_include("SiPMSensor.h")
@@ -45,12 +46,14 @@ using SimulateSiPMwithEdepOutput = std::tuple<edm4hep::CalorimeterHitCollection,
                                               edm4hep::CaloHitSimCaloHitLinkCollection>;
 
 class SimulateSiPMwithEdep final
-    : public k4FWCore::MultiTransformer<SimulateSiPMwithEdepOutput(const edm4hep::SimCalorimeterHitCollection&)> {
+    : public k4FWCore::MultiTransformer<SimulateSiPMwithEdepOutput(const edm4hep::SimCalorimeterHitCollection&,
+                                                                   const edm4hep::EventHeaderCollection&)> {
 public:
   SimulateSiPMwithEdep(const std::string& name, ISvcLocator* svcLoc);
 
   StatusCode initialize() override;
-  SimulateSiPMwithEdepOutput operator()(const edm4hep::SimCalorimeterHitCollection& scintHits) const override;
+  SimulateSiPMwithEdepOutput operator()(const edm4hep::SimCalorimeterHitCollection& scintHits,
+                                        const edm4hep::EventHeaderCollection& headers) const override;
 
 private:
   std::vector<double> integral(const std::vector<double>& wavelen, const std::vector<double>& yval) const;
@@ -66,6 +69,9 @@ private:
   // readout name and segmentation (of specific type)
   Gaudi::Property<std::string> m_readoutName{this, "readoutName", "", "name of the readout"};
   dd4hep::DDSegmentation::GridDRcalo_k4geo* m_segmentation = nullptr;
+
+  // unique ID service, used to seed the SiPM simulation for every event
+  SmartIF<IUniqueIDGenSvc> m_uidSvc;
 
   std::unique_ptr<sipm::SiPMSensor> m_sensor;
 

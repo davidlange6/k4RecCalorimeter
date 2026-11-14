@@ -5,6 +5,7 @@ from k4FWCore import ApplicationMgr, IOSvc
 iosvc = IOSvc()
 iosvc.Input = "testIDEA_o1_v03.root"
 iosvc.CollectionNames = [
+    "EventHeader",  # needed to seed the SiPM simulation for each event
     "DRcaloSiPMreadout_scint",
     "DRcaloSiPMreadout_scintContributions",
     "DRcaloSiPMreadoutSimHit",

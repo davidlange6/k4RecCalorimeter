@@ -8,6 +8,7 @@
 #include "edm4hep/TimeSeriesCollection.h"
 
 #include "k4FWCore/Transformer.h"
+#include "k4Interface/IUniqueIDGenSvc.h"
 
 #include "GaudiKernel/IRndmGenSvc.h"
 #include "GaudiKernel/RndmGenerators.h"
@@ -44,12 +45,14 @@ using SimulateSiPMwithContribOutput =
     std::tuple<edm4hep::CalorimeterHitCollection, edm4hep::CaloHitSimCaloHitLinkCollection>;
 
 class SimulateSiPMwithContrib final
-    : public k4FWCore::MultiTransformer<SimulateSiPMwithContribOutput(const edm4hep::SimCalorimeterHitCollection&)> {
+    : public k4FWCore::MultiTransformer<SimulateSiPMwithContribOutput(const edm4hep::SimCalorimeterHitCollection&,
+                                                                      const edm4hep::EventHeaderCollection&)> {
 public:
   SimulateSiPMwithContrib(const std::string& name, ISvcLocator* svcLoc);
 
   StatusCode initialize() override;
-  SimulateSiPMwithContribOutput operator()(const edm4hep::SimCalorimeterHitCollection& simHits) const override;
+  SimulateSiPMwithContribOutput operator()(const edm4hep::SimCalorimeterHitCollection& simHits,
+                                           const edm4hep::EventHeaderCollection& headers) const override;
 
 private:
   // Random Number Service
@@ -59,6 +62,9 @@ private:
   // readout name and segmentation (of specific type)
   // Not used for the moment, might be used in future
   // Gaudi::Property<std::string> m_readoutName{this, "readoutName", "", "name of the readout"};
+
+  // unique ID service, used to seed the SiPM simulation for every event
+  SmartIF<IUniqueIDGenSvc> m_uidSvc;
 
   std::unique_ptr<sipm::SiPMSensor> m_sensor;
 

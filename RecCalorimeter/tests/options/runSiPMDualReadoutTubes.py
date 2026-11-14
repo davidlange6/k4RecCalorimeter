@@ -5,6 +5,7 @@ from k4FWCore import ApplicationMgr, IOSvc
 iosvc = IOSvc()
 iosvc.Input = "IDEA_o2_v01.root"
 iosvc.CollectionNames = [
+    "EventHeader",  # needed to seed the SiPM simulation for each event
     "DRBTScin",  # collections from IDEA_o2 hadronic calo
     "DRBTScinContributions",
     "DRBTCher",

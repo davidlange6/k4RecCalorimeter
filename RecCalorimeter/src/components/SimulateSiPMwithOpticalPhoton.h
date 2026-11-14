@@ -3,12 +3,14 @@
 
 // EDM4HEP includes
 #include "edm4hep/CalorimeterHitCollection.h"
+#include "edm4hep/EventHeaderCollection.h"
 #include "edm4hep/RawTimeSeriesCollection.h"
 #include "edm4hep/SimCalorimeterHitCollection.h"
 #include "edm4hep/TimeSeriesCollection.h"
 
 // k4FWCore includes
 #include "k4FWCore/Transformer.h"
+#include "k4Interface/IUniqueIDGenSvc.h"
 
 // Gaudi includes
 #include "GaudiKernel/IRndmGenSvc.h"
@@ -44,16 +46,17 @@ using SimulateSiPMwithOpticalPhotonOutput =
     std::tuple<edm4hep::CalorimeterHitCollection, edm4hep::TimeSeriesCollection>;
 
 class SimulateSiPMwithOpticalPhoton final
-    : public k4FWCore::MultiTransformer<SimulateSiPMwithOpticalPhotonOutput(const edm4hep::SimCalorimeterHitCollection&,
-                                                                            const edm4hep::RawTimeSeriesCollection&,
-                                                                            const edm4hep::RawTimeSeriesCollection&)> {
+    : public k4FWCore::MultiTransformer<SimulateSiPMwithOpticalPhotonOutput(
+          const edm4hep::SimCalorimeterHitCollection&, const edm4hep::RawTimeSeriesCollection&,
+          const edm4hep::RawTimeSeriesCollection&, const edm4hep::EventHeaderCollection&)> {
 public:
   SimulateSiPMwithOpticalPhoton(const std::string& name, ISvcLocator* svcLoc);
 
   StatusCode initialize() override;
   SimulateSiPMwithOpticalPhotonOutput operator()(const edm4hep::SimCalorimeterHitCollection& simHits,
                                                  const edm4hep::RawTimeSeriesCollection& timeStructs,
-                                                 const edm4hep::RawTimeSeriesCollection& waveLenStructs) const override;
+                                                 const edm4hep::RawTimeSeriesCollection& waveLenStructs,
+                                                 const edm4hep::EventHeaderCollection& headers) const override;
 
 private:
   // integral function for the wavelength random generation
@@ -64,6 +67,9 @@ private:
   Rndm::Numbers m_rndmUniform;
 
   // SiPM sensor model
+  // unique ID service, used to seed the SiPM simulation for every event
+  SmartIF<IUniqueIDGenSvc> m_uidSvc;
+
   std::unique_ptr<sipm::SiPMSensor> m_sensor;
 
   // SiPM properties (defaults set based on Hamamatsu S14160-1310PS)

@@ -5,7 +5,9 @@
 DECLARE_COMPONENT(SimulateSiPMwithContrib)
 
 SimulateSiPMwithContrib::SimulateSiPMwithContrib(const std::string& aName, ISvcLocator* aSvcLoc)
-    : MultiTransformer(aName, aSvcLoc, {KeyValue("inputHitCollection", "SimCalorimeterHitCollection")},
+    : MultiTransformer(aName, aSvcLoc,
+                       {KeyValue("inputHitCollection", "SimCalorimeterHitCollection"),
+                        KeyValue("inputHeaderCollection", "EventHeader")},
                        {KeyValue("outputHitCollection", "CalorimeterHitCollection"),
                         KeyValue("outputLinkCollection", "CaloHitSimCaloHitLinkCollection")}) {}
 
@@ -25,6 +27,12 @@ StatusCode SimulateSiPMwithContrib::initialize() {
 
   if (m_rndmExp.initialize(m_randSvc, Rndm::Exponential(m_scintDecaytime.value())).isFailure()) {
     error() << "Couldn't initialize RndmGenSvc!" << endmsg;
+    return StatusCode::FAILURE;
+  }
+
+  m_uidSvc = service<IUniqueIDGenSvc>("UniqueIDGenSvc", true);
+  if (!m_uidSvc) {
+    error() << "Unable to get UniqueIDGenSvc" << endmsg;
     return StatusCode::FAILURE;
   }
 
@@ -57,8 +65,13 @@ StatusCode SimulateSiPMwithContrib::initialize() {
   return StatusCode::SUCCESS;
 }
 
-SimulateSiPMwithContribOutput
-SimulateSiPMwithContrib::operator()(const edm4hep::SimCalorimeterHitCollection& simHits) const {
+SimulateSiPMwithContribOutput SimulateSiPMwithContrib::operator()(const edm4hep::SimCalorimeterHitCollection& simHits,
+                                                                  const edm4hep::EventHeaderCollection& headers) const {
+  // Seed the SimSiPM generator from (run, event, algorithm name), so that the result does not depend
+  // on the processing order of the events and is reproducible from job to job
+  const uint64_t seed = m_uidSvc->getUniqueID(headers, name());
+  m_sensor->rng().seed(seed != 0 ? seed : 1); // a zero seed is not allowed by SimSiPM
+
   edm4hep::CalorimeterHitCollection digiHits;
   edm4hep::CaloHitSimCaloHitLinkCollection links;
 
