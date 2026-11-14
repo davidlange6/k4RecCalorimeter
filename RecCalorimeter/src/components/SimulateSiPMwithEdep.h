@@ -7,9 +7,8 @@
 #include "edm4hep/SimCalorimeterHitCollection.h"
 #include "edm4hep/TimeSeriesCollection.h"
 
-#include "k4FWCore/DataHandle.h"
+#include "k4FWCore/Transformer.h"
 
-#include "Gaudi/Algorithm.h"
 #include "GaudiKernel/IRndmGenSvc.h"
 #include "GaudiKernel/RndmGenerators.h"
 #include "GaudiKernel/ToolHandle.h"
@@ -42,14 +41,16 @@
  *  @date   2025-03-27
  */
 
-class SimulateSiPMwithEdep : public Gaudi::Algorithm {
+using SimulateSiPMwithEdepOutput = std::tuple<edm4hep::CalorimeterHitCollection, edm4hep::TimeSeriesCollection,
+                                              edm4hep::CaloHitSimCaloHitLinkCollection>;
+
+class SimulateSiPMwithEdep final
+    : public k4FWCore::MultiTransformer<SimulateSiPMwithEdepOutput(const edm4hep::SimCalorimeterHitCollection&)> {
 public:
   SimulateSiPMwithEdep(const std::string& name, ISvcLocator* svcLoc);
-  virtual ~SimulateSiPMwithEdep() {};
 
-  StatusCode initialize();
-  StatusCode execute(const EventContext&) const;
-  StatusCode finalize();
+  StatusCode initialize() override;
+  SimulateSiPMwithEdepOutput operator()(const edm4hep::SimCalorimeterHitCollection& scintHits) const override;
 
 private:
   std::vector<double> integral(const std::vector<double>& wavelen, const std::vector<double>& yval) const;
@@ -65,25 +66,6 @@ private:
   // readout name and segmentation (of specific type)
   Gaudi::Property<std::string> m_readoutName{this, "readoutName", "", "name of the readout"};
   dd4hep::DDSegmentation::GridDRcalo_k4geo* m_segmentation = nullptr;
-
-  // input collection names
-  Gaudi::Property<std::string> m_hitColl{this, "inputHitCollection", "DRcaloSiPMreadout_scint",
-                                         "input calo collection name"};
-  Gaudi::Property<std::string> m_outColl{this, "outputHitCollection", "DRcaloSiPMreadoutDigiHit_scint",
-                                         "output calo collection name"};
-  Gaudi::Property<std::string> m_outTimeColl{this, "outputTimeStructCollection", "DRcaloSiPMreadoutDigiWaveform_scint",
-                                             "output waveform collection name"};
-  Gaudi::Property<std::string> m_outLinkColl{this, "outputHitLinkCollection", "DRcaloSiPMreadoutDigiHit_scint_link",
-                                             "output calo hit to sim calo hit link collection name"};
-
-  mutable k4FWCore::DataHandle<edm4hep::SimCalorimeterHitCollection> m_scintHits{m_hitColl, Gaudi::DataHandle::Reader,
-                                                                                 this};
-  mutable k4FWCore::DataHandle<edm4hep::CalorimeterHitCollection> m_digiHits{m_outColl, Gaudi::DataHandle::Writer,
-                                                                             this};
-  mutable k4FWCore::DataHandle<edm4hep::TimeSeriesCollection> m_waveforms{m_outTimeColl, Gaudi::DataHandle::Writer,
-                                                                          this};
-  mutable k4FWCore::DataHandle<edm4hep::CaloHitSimCaloHitLinkCollection> m_hitLinks{m_outLinkColl,
-                                                                                    Gaudi::DataHandle::Writer, this};
 
   std::unique_ptr<sipm::SiPMSensor> m_sensor;
 

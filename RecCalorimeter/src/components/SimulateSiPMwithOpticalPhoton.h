@@ -8,10 +8,9 @@
 #include "edm4hep/TimeSeriesCollection.h"
 
 // k4FWCore includes
-#include "k4FWCore/DataHandle.h"
+#include "k4FWCore/Transformer.h"
 
 // Gaudi includes
-#include "Gaudi/Algorithm.h"
 #include "GaudiKernel/IRndmGenSvc.h"
 #include "GaudiKernel/RndmGenerators.h"
 #include "GaudiKernel/ToolHandle.h"
@@ -41,14 +40,20 @@
  *  @date   2025-03-18
  */
 
-class SimulateSiPMwithOpticalPhoton : public Gaudi::Algorithm {
+using SimulateSiPMwithOpticalPhotonOutput =
+    std::tuple<edm4hep::CalorimeterHitCollection, edm4hep::TimeSeriesCollection>;
+
+class SimulateSiPMwithOpticalPhoton final
+    : public k4FWCore::MultiTransformer<SimulateSiPMwithOpticalPhotonOutput(const edm4hep::SimCalorimeterHitCollection&,
+                                                                            const edm4hep::RawTimeSeriesCollection&,
+                                                                            const edm4hep::RawTimeSeriesCollection&)> {
 public:
   SimulateSiPMwithOpticalPhoton(const std::string& name, ISvcLocator* svcLoc);
-  virtual ~SimulateSiPMwithOpticalPhoton() {};
 
   StatusCode initialize() override;
-  StatusCode execute(const EventContext&) const override;
-  StatusCode finalize() override;
+  SimulateSiPMwithOpticalPhotonOutput operator()(const edm4hep::SimCalorimeterHitCollection& simHits,
+                                                 const edm4hep::RawTimeSeriesCollection& timeStructs,
+                                                 const edm4hep::RawTimeSeriesCollection& waveLenStructs) const override;
 
 private:
   // integral function for the wavelength random generation
@@ -57,33 +62,6 @@ private:
   // Random Number Service
   SmartIF<IRndmGenSvc> m_randSvc;
   Rndm::Numbers m_rndmUniform;
-
-  // input collection names
-  Gaudi::Property<std::string> m_hitColl{this, "inputHitCollection", "DRcaloSiPMreadoutSimHit",
-                                         "input calo collection name"};
-  Gaudi::Property<std::string> m_outColl{this, "outputHitCollection", "DRcaloSiPMreadoutDigiHit",
-                                         "output calo collection name"};
-
-  Gaudi::Property<std::string> m_inTimeColl{this, "inputTimeStructCollection", "DRcaloSiPMreadoutTimeStruct",
-                                            "input time structure collection name"};
-  Gaudi::Property<std::string> m_inWavlenColl{this, "inputWavlenCollection", "DRcaloSiPMreadoutWaveLen",
-                                              "input wavelength collection name"};
-  Gaudi::Property<std::string> m_outTimeColl{this, "outputTimeStructCollection", "DRcaloSiPMreadoutDigiWaveform",
-                                             "output waveform collection name"};
-
-  // Input collections
-  mutable k4FWCore::DataHandle<edm4hep::SimCalorimeterHitCollection> m_simHits{m_hitColl, Gaudi::DataHandle::Reader,
-                                                                               this};
-  mutable k4FWCore::DataHandle<edm4hep::RawTimeSeriesCollection> m_timeStruct{m_inTimeColl, Gaudi::DataHandle::Reader,
-                                                                              this};
-  mutable k4FWCore::DataHandle<edm4hep::RawTimeSeriesCollection> m_wavelenStruct{m_inWavlenColl,
-                                                                                 Gaudi::DataHandle::Reader, this};
-
-  // Output collections
-  mutable k4FWCore::DataHandle<edm4hep::CalorimeterHitCollection> m_digiHits{m_outColl, Gaudi::DataHandle::Writer,
-                                                                             this};
-  mutable k4FWCore::DataHandle<edm4hep::TimeSeriesCollection> m_waveforms{m_outTimeColl, Gaudi::DataHandle::Writer,
-                                                                          this};
 
   // SiPM sensor model
   std::unique_ptr<sipm::SiPMSensor> m_sensor;

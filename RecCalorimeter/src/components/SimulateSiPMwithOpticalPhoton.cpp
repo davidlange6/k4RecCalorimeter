@@ -1,16 +1,21 @@
 #include "SimulateSiPMwithOpticalPhoton.h"
 
+#include "GaudiKernel/GaudiException.h"
+
 // DECLARE_COMPONENT macro connects the algorithm to the framework
 DECLARE_COMPONENT(SimulateSiPMwithOpticalPhoton)
 
 SimulateSiPMwithOpticalPhoton::SimulateSiPMwithOpticalPhoton(const std::string& aName, ISvcLocator* aSvcLoc)
-    : Gaudi::Algorithm(aName, aSvcLoc) {
-  // Constructor doesn't need to do anything special
-}
+    : MultiTransformer(aName, aSvcLoc,
+                       {KeyValue("inputHitCollection", "DRcaloSiPMreadoutSimHit"),
+                        KeyValue("inputTimeStructCollection", "DRcaloSiPMreadoutTimeStruct"),
+                        KeyValue("inputWavlenCollection", "DRcaloSiPMreadoutWaveLen")},
+                       {KeyValue("outputHitCollection", "DRcaloSiPMreadoutDigiHit"),
+                        KeyValue("outputTimeStructCollection", "DRcaloSiPMreadoutDigiWaveform")}) {}
 
 StatusCode SimulateSiPMwithOpticalPhoton::initialize() {
   // First call the base class initialization
-  StatusCode sc = Gaudi::Algorithm::initialize();
+  StatusCode sc = MultiTransformer::initialize();
 
   if (sc.isFailure())
     return sc;
@@ -88,34 +93,38 @@ std::vector<double> SimulateSiPMwithOpticalPhoton::integral(const std::vector<do
   return result;
 }
 
-StatusCode SimulateSiPMwithOpticalPhoton::execute(const EventContext&) const {
-  // Get input collections
-  const edm4hep::RawTimeSeriesCollection* timeStructs = m_timeStruct.get();
-  const edm4hep::RawTimeSeriesCollection* waveLenStructs = m_wavelenStruct.get();
-  const edm4hep::SimCalorimeterHitCollection* simHits = m_simHits.get();
-
+SimulateSiPMwithOpticalPhotonOutput
+SimulateSiPMwithOpticalPhoton::operator()(const edm4hep::SimCalorimeterHitCollection& simHits,
+                                          const edm4hep::RawTimeSeriesCollection& timeStructs,
+                                          const edm4hep::RawTimeSeriesCollection& waveLenStructs) const {
   // Create output collections
-  edm4hep::TimeSeriesCollection* waveforms = m_waveforms.createAndPut();
-  edm4hep::CalorimeterHitCollection* digiHits = m_digiHits.createAndPut();
+  edm4hep::TimeSeriesCollection waveforms;
+  edm4hep::CalorimeterHitCollection digiHits;
+
+  // The three input collections are filled in parallel by the sensitive detector (one entry per cell)
+  if (simHits.size() != timeStructs.size() || waveLenStructs.size() != timeStructs.size()) {
+    throw GaudiException("Input collections have different sizes! This should never happen.", name(),
+                         StatusCode::FAILURE);
+  }
 
   // Process each hit
-  for (unsigned int idx = 0; idx < timeStructs->size(); idx++) {
-    const auto& timeStruct = timeStructs->at(idx);
-    const auto& waveLength = waveLenStructs->at(idx);
-    const auto& simHit = simHits->at(idx);
+  for (unsigned int idx = 0; idx < timeStructs.size(); idx++) {
+    const auto& timeStruct = timeStructs.at(idx);
+    const auto& waveLength = waveLenStructs.at(idx);
+    const auto& simHit = simHits.at(idx);
 
     // Validate that both collections have matching CellIDs
     if (timeStruct.getCellID() != simHit.getCellID()) {
-      error() << "CellIDs of RawCalorimeterHits & RawTimeSeries are different! "
-              << "This should never happen." << endmsg;
-      return StatusCode::FAILURE;
+      throw GaudiException("CellIDs of SimCalorimeterHits & RawTimeSeries (time structure) are different! "
+                           "This should never happen.",
+                           name(), StatusCode::FAILURE);
     }
 
     // Validate that both collections have matching CellIDs
     if (waveLength.getCellID() != simHit.getCellID()) {
-      error() << "CellIDs of RawCalorimeterHits & RawTimeSeries are different! "
-              << "This should never happen." << endmsg;
-      return StatusCode::FAILURE;
+      throw GaudiException("CellIDs of SimCalorimeterHits & RawTimeSeries (wavelength) are different! "
+                           "This should never happen.",
+                           name(), StatusCode::FAILURE);
     }
 
     // extract wavelength randomly according to the wavelength distribution
@@ -190,8 +199,8 @@ StatusCode SimulateSiPMwithOpticalPhoton::execute(const EventContext&) const {
     m_sensor->addPhotons(vecTimes, vecWavelengths); // Sets photon arrival times (in ns) & wavelengths (in nm)
     m_sensor->runEvent();                           // Runs the SiPM simulation
 
-    auto digiHit = digiHits->create();
-    auto waveform = waveforms->create();
+    auto digiHit = digiHits.create();
+    auto waveform = waveforms.create();
 
     // Get the analog signal from the SiPM
     const sipm::SiPMAnalogSignal anaSignal = m_sensor->signal();
@@ -244,10 +253,5 @@ StatusCode SimulateSiPMwithOpticalPhoton::execute(const EventContext&) const {
     }
   }
 
-  return StatusCode::SUCCESS;
-}
-
-StatusCode SimulateSiPMwithOpticalPhoton::finalize() {
-  // Just delegate to the base class
-  return Gaudi::Algorithm::finalize();
+  return std::make_tuple(std::move(digiHits), std::move(waveforms));
 }

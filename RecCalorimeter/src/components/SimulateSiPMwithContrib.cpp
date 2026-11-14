@@ -5,16 +5,12 @@
 DECLARE_COMPONENT(SimulateSiPMwithContrib)
 
 SimulateSiPMwithContrib::SimulateSiPMwithContrib(const std::string& aName, ISvcLocator* aSvcLoc)
-    : Gaudi::Algorithm(aName, aSvcLoc) {
-
-  // register DataHandles with hit collection names
-  declareProperty("inputHitCollection", m_simHits, "input calo collection name");
-  declareProperty("outputHitCollection", m_digiHits, "output calo collection name");
-  declareProperty("outputLinkCollection", m_hitLinks, "output links collection name");
-}
+    : MultiTransformer(aName, aSvcLoc, {KeyValue("inputHitCollection", "SimCalorimeterHitCollection")},
+                       {KeyValue("outputHitCollection", "CalorimeterHitCollection"),
+                        KeyValue("outputLinkCollection", "CaloHitSimCaloHitLinkCollection")}) {}
 
 StatusCode SimulateSiPMwithContrib::initialize() {
-  StatusCode sc = Gaudi::Algorithm::initialize();
+  StatusCode sc = MultiTransformer::initialize();
 
   if (sc.isFailure())
     return sc;
@@ -61,17 +57,16 @@ StatusCode SimulateSiPMwithContrib::initialize() {
   return StatusCode::SUCCESS;
 }
 
-StatusCode SimulateSiPMwithContrib::execute(const EventContext&) const {
-  const edm4hep::SimCalorimeterHitCollection* scintHits = m_simHits.get();
-  edm4hep::CalorimeterHitCollection* digiHits = m_digiHits.createAndPut();
-  auto* links = m_hitLinks.createAndPut();
+SimulateSiPMwithContribOutput
+SimulateSiPMwithContrib::operator()(const edm4hep::SimCalorimeterHitCollection& simHits) const {
+  edm4hep::CalorimeterHitCollection digiHits;
+  edm4hep::CaloHitSimCaloHitLinkCollection links;
 
   // loop through the hits (each hit corresponds to a fiber)
-  for (unsigned int idx = 0; idx < scintHits->size(); idx++) {
-    const auto& scintHit = scintHits->at(idx);
+  for (const auto& scintHit : simHits) {
 
     if (!scintHit.isAvailable()) {
-      std::cout << "ERROR: Hit not available!" << std::endl;
+      error() << "Hit not available!" << endmsg;
       continue;
     }
 
@@ -82,7 +77,7 @@ StatusCode SimulateSiPMwithContrib::execute(const EventContext&) const {
     for (auto contrib = scintHit.contributions_begin(); contrib != scintHit.contributions_end(); ++contrib) {
 
       if (!contrib->isAvailable()) {
-        std::cerr << "ERROR: Hit contribution not available!" << std::endl;
+        error() << "Hit contribution not available!" << endmsg;
         continue;
       }
       const double npe = contrib->getEnergy(); // in IDEA_o2 this is the number of photo-electrons
@@ -129,7 +124,7 @@ StatusCode SimulateSiPMwithContrib::execute(const EventContext&) const {
     if (toa > 1e6)
       continue;
 
-    auto digiHit = digiHits->create();
+    auto digiHit = digiHits.create();
     digiHit.setEnergy(integral /* * m_scaleADC.value()*/); // convertition from ADC to GeV can be added here
     digiHit.setEnergyError(/*m_scaleADC.value() **/ std::sqrt(integral));
     digiHit.setPosition(scintHit.getPosition());
@@ -137,12 +132,10 @@ StatusCode SimulateSiPMwithContrib::execute(const EventContext&) const {
     // Toa and m_gateStart are in ns
     digiHit.setTime(toa + m_gateStart);
 
-    auto link = links->create();
+    auto link = links.create();
     link.setFrom(digiHit);
     link.setTo(scintHit);
   }
 
-  return StatusCode::SUCCESS;
+  return std::make_tuple(std::move(digiHits), std::move(links));
 }
-
-StatusCode SimulateSiPMwithContrib::finalize() { return Gaudi::Algorithm::finalize(); }

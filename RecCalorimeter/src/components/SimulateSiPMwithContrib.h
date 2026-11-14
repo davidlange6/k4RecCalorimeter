@@ -7,9 +7,8 @@
 #include "edm4hep/SimCalorimeterHitCollection.h"
 #include "edm4hep/TimeSeriesCollection.h"
 
-#include "k4FWCore/DataHandle.h"
+#include "k4FWCore/Transformer.h"
 
-#include "Gaudi/Algorithm.h"
 #include "GaudiKernel/IRndmGenSvc.h"
 #include "GaudiKernel/RndmGenerators.h"
 #include "GaudiKernel/ToolHandle.h"
@@ -41,14 +40,16 @@
  *  @date   2026-02-17
  */
 
-class SimulateSiPMwithContrib : public Gaudi::Algorithm {
+using SimulateSiPMwithContribOutput =
+    std::tuple<edm4hep::CalorimeterHitCollection, edm4hep::CaloHitSimCaloHitLinkCollection>;
+
+class SimulateSiPMwithContrib final
+    : public k4FWCore::MultiTransformer<SimulateSiPMwithContribOutput(const edm4hep::SimCalorimeterHitCollection&)> {
 public:
   SimulateSiPMwithContrib(const std::string& name, ISvcLocator* svcLoc);
-  virtual ~SimulateSiPMwithContrib() {};
 
-  StatusCode initialize();
-  StatusCode execute(const EventContext&) const;
-  StatusCode finalize();
+  StatusCode initialize() override;
+  SimulateSiPMwithContribOutput operator()(const edm4hep::SimCalorimeterHitCollection& simHits) const override;
 
 private:
   // Random Number Service
@@ -58,11 +59,6 @@ private:
   // readout name and segmentation (of specific type)
   // Not used for the moment, might be used in future
   // Gaudi::Property<std::string> m_readoutName{this, "readoutName", "", "name of the readout"};
-
-  mutable k4FWCore::DataHandle<edm4hep::SimCalorimeterHitCollection> m_simHits{"", Gaudi::DataHandle::Reader, this};
-  mutable k4FWCore::DataHandle<edm4hep::CalorimeterHitCollection> m_digiHits{"", Gaudi::DataHandle::Writer, this};
-  mutable k4FWCore::DataHandle<edm4hep::CaloHitSimCaloHitLinkCollection> m_hitLinks{"", Gaudi::DataHandle::Writer,
-                                                                                    this};
 
   std::unique_ptr<sipm::SiPMSensor> m_sensor;
 

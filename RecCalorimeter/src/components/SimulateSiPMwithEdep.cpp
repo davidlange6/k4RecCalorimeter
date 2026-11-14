@@ -5,10 +5,13 @@
 DECLARE_COMPONENT(SimulateSiPMwithEdep)
 
 SimulateSiPMwithEdep::SimulateSiPMwithEdep(const std::string& aName, ISvcLocator* aSvcLoc)
-    : Gaudi::Algorithm(aName, aSvcLoc) {}
+    : MultiTransformer(aName, aSvcLoc, {KeyValue("inputHitCollection", "DRcaloSiPMreadout_scint")},
+                       {KeyValue("outputHitCollection", "DRcaloSiPMreadoutDigiHit_scint"),
+                        KeyValue("outputTimeStructCollection", "DRcaloSiPMreadoutDigiWaveform_scint"),
+                        KeyValue("outputHitLinkCollection", "DRcaloSiPMreadoutDigiHit_scint_link")}) {}
 
 StatusCode SimulateSiPMwithEdep::initialize() {
-  StatusCode sc = Gaudi::Algorithm::initialize();
+  StatusCode sc = MultiTransformer::initialize();
 
   if (sc.isFailure())
     return sc;
@@ -133,16 +136,15 @@ std::vector<double> SimulateSiPMwithEdep::integral(const std::vector<double>& wa
   return result;
 }
 
-StatusCode SimulateSiPMwithEdep::execute(const EventContext&) const {
-  const edm4hep::SimCalorimeterHitCollection* scintHits = m_scintHits.get();
-  edm4hep::CalorimeterHitCollection* digiHits = m_digiHits.createAndPut();
-  edm4hep::TimeSeriesCollection* waveforms = m_waveforms.createAndPut();
-  edm4hep::CaloHitSimCaloHitLinkCollection* hitLinks = m_hitLinks.createAndPut();
+SimulateSiPMwithEdepOutput
+SimulateSiPMwithEdep::operator()(const edm4hep::SimCalorimeterHitCollection& scintHits) const {
+  edm4hep::CalorimeterHitCollection digiHits;
+  edm4hep::TimeSeriesCollection waveforms;
+  edm4hep::CaloHitSimCaloHitLinkCollection hitLinks;
 
   const double yield = m_scintYield.value() / dd4hep::keV;
 
-  for (unsigned int idx = 0; idx < scintHits->size(); idx++) {
-    const auto& scintHit = scintHits->at(idx);
+  for (const auto& scintHit : scintHits) {
     const auto sipmPos = m_segmentation->sipmPosition(scintHit.getCellID()); // in dd4hep unit
 
     std::vector<double> vecTimes;
@@ -253,9 +255,9 @@ StatusCode SimulateSiPMwithEdep::execute(const EventContext&) const {
     m_sensor->addPhotons(vecTimesShifted, vecWavelens); // Sets photon times & wavelengths
     m_sensor->runEvent();                               // Runs the simulation
 
-    auto digiHit = digiHits->create();
-    auto waveform = waveforms->create();
-    auto hitLink = hitLinks->create();
+    auto digiHit = digiHits.create();
+    auto waveform = waveforms.create();
+    auto hitLink = hitLinks.create();
     hitLink.setFrom(digiHit);
     hitLink.setTo(scintHit);
 
@@ -309,7 +311,5 @@ StatusCode SimulateSiPMwithEdep::execute(const EventContext&) const {
     }
   }
 
-  return StatusCode::SUCCESS;
+  return std::make_tuple(std::move(digiHits), std::move(waveforms), std::move(hitLinks));
 }
-
-StatusCode SimulateSiPMwithEdep::finalize() { return Gaudi::Algorithm::finalize(); }
