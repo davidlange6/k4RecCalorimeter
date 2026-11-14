@@ -257,6 +257,6 @@ ApplicationMgr(
     ],
     EvtSel="NONE",
     EvtMax=-1,
-    ExtSvc=[EventDataSvc("EventDataSvc"), geoservice, UniqueIDGenSvc("uidSvc")],
+    ExtSvc=[EventDataSvc("EventDataSvc"), geoservice, UniqueIDGenSvc("UniqueIDGenSvc")],
     StopOnSignal=True,
 )
