@@ -10,8 +10,8 @@
 #include "k4FWCore/Transformer.h"
 #include "k4Interface/IUniqueIDGenSvc.h"
 
-#include "GaudiKernel/IRndmGenSvc.h"
-#include "GaudiKernel/RndmGenerators.h"
+#include "TRandom3.h"
+
 #include "GaudiKernel/ToolHandle.h"
 
 // Check for SiPMSensor header location (similar to how DigiSiPM handles this)
@@ -55,9 +55,10 @@ public:
                                            const edm4hep::EventHeaderCollection& headers) const override;
 
 private:
-  // Random Number Service
-  SmartIF<IRndmGenSvc> m_randSvc;
-  Rndm::Numbers m_rndmExp;
+  // Per-event engine for the draws made by this algorithm (photon statistics, wavelength,
+  // absorption, scintillation time). Reseeded from UniqueIDGenSvc at every event so that the
+  // result for an event does not depend on the other events processed in the job.
+  inline static thread_local TRandom3 m_engine;
 
   // readout name and segmentation (of specific type)
   // Not used for the moment, might be used in future

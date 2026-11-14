@@ -18,24 +18,6 @@ StatusCode SimulateSiPMwithEdep::initialize() {
   if (sc.isFailure())
     return sc;
 
-  // Initialize random services
-  m_randSvc = service("RndmGenSvc", false);
-
-  if (!m_randSvc) {
-    error() << "Couldn't get RndmGenSvc!" << endmsg;
-    return StatusCode::FAILURE;
-  }
-
-  if (m_rndmUniform.initialize(m_randSvc, Rndm::Flat(0., 1.)).isFailure()) {
-    error() << "Couldn't initialize RndmGenSvc!" << endmsg;
-    return StatusCode::FAILURE;
-  }
-
-  if (m_rndmExp.initialize(m_randSvc, Rndm::Exponential(m_scintDecaytime.value())).isFailure()) {
-    error() << "Couldn't initialize RndmGenSvc!" << endmsg;
-    return StatusCode::FAILURE;
-  }
-
   if (m_wavelen.size() < 2) {
     error() << "SimulateSiPMwithEdep: "
             << "The wavelength vector size must be greater or equal than 2" << endmsg;
@@ -150,6 +132,8 @@ SimulateSiPMwithEdepOutput SimulateSiPMwithEdep::operator()(const edm4hep::SimCa
   // on the processing order of the events and is reproducible from job to job
   const uint64_t seed = m_uidSvc->getUniqueID(headers, name());
   m_sensor->rng().seed(seed != 0 ? seed : 1); // a zero seed is not allowed by SimSiPM
+  const uint32_t seed32 = static_cast<uint32_t>(seed ^ (seed >> 32));
+  m_engine.SetSeed(seed32 != 0 ? seed32 : 1); // TRandom3 treats 0 as "seed from the clock"
 
   edm4hep::CalorimeterHitCollection digiHits;
   edm4hep::TimeSeriesCollection waveforms;
@@ -174,12 +158,10 @@ SimulateSiPMwithEdepOutput SimulateSiPMwithEdep::operator()(const edm4hep::SimCa
       unsigned npe = 0;
 
       if (avgNphoton < 10.) {
-        Rndm::Numbers rnd(m_randSvc, Rndm::Poisson(avgNphoton));
-        npe = static_cast<unsigned>(std::floor(rnd.shoot() + 0.5));
+        npe = static_cast<unsigned>(m_engine.Poisson(avgNphoton));
       } else {
-        Rndm::Numbers rnd(m_randSvc, Rndm::Gauss(avgNphoton, std::sqrt(avgNphoton)));
         // prevent underflow since Gaussian can shoot negative in rare case
-        double val = std::floor(rnd.shoot() + 0.5);
+        double val = std::floor(m_engine.Gaus(avgNphoton, std::sqrt(avgNphoton)) + 0.5);
         npe = static_cast<unsigned>(std::max(val, 0.));
       }
 
@@ -205,7 +187,7 @@ SimulateSiPMwithEdepOutput SimulateSiPMwithEdep::operator()(const edm4hep::SimCa
         // get photon wavelength
         // similar to
         // https://gitlab.cern.ch/geant4/geant4/-/blob/master/source/processes/electromagnetic/xrays/src/G4Scintillation.cc
-        const double randval = m_integral.back() * m_rndmUniform.shoot();
+        const double randval = m_integral.back() * m_engine.Rndm();
         unsigned xhigh = 1;
 
         for (xhigh = 1; xhigh < m_integral.size() - 1; xhigh++) {
@@ -240,7 +222,7 @@ SimulateSiPMwithEdepOutput SimulateSiPMwithEdep::operator()(const edm4hep::SimCa
 
           // check absorption
           // similar to https://gitlab.cern.ch/geant4/geant4/-/blob/master/source/processes/management/src/G4VProcess.cc
-          const double nInteractionLengthLeft = -std::log(m_rndmUniform.shoot());
+          const double nInteractionLengthLeft = -std::log(m_engine.Rndm());
           const double nInteractionLength = dist / (absLen * dd4hep::meter);
 
           // absorb photons
@@ -249,7 +231,7 @@ SimulateSiPMwithEdepOutput SimulateSiPMwithEdep::operator()(const edm4hep::SimCa
         }
 
         // get scintillation time
-        double scintTime = arrivalTime + m_rndmExp.shoot();
+        double scintTime = arrivalTime + m_engine.Exp(m_scintDecaytime.value());
 
         if (scintTime < minTime)
           minTime = scintTime;

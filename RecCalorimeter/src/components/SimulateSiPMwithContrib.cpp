@@ -17,19 +17,6 @@ StatusCode SimulateSiPMwithContrib::initialize() {
   if (sc.isFailure())
     return sc;
 
-  // Initialize random services
-  m_randSvc = service("RndmGenSvc", false);
-
-  if (!m_randSvc) {
-    error() << "Couldn't get RndmGenSvc!" << endmsg;
-    return StatusCode::FAILURE;
-  }
-
-  if (m_rndmExp.initialize(m_randSvc, Rndm::Exponential(m_scintDecaytime.value())).isFailure()) {
-    error() << "Couldn't initialize RndmGenSvc!" << endmsg;
-    return StatusCode::FAILURE;
-  }
-
   m_uidSvc = service<IUniqueIDGenSvc>("UniqueIDGenSvc", true);
   if (!m_uidSvc) {
     error() << "Unable to get UniqueIDGenSvc" << endmsg;
@@ -71,6 +58,8 @@ SimulateSiPMwithContribOutput SimulateSiPMwithContrib::operator()(const edm4hep:
   // on the processing order of the events and is reproducible from job to job
   const uint64_t seed = m_uidSvc->getUniqueID(headers, name());
   m_sensor->rng().seed(seed != 0 ? seed : 1); // a zero seed is not allowed by SimSiPM
+  const uint32_t seed32 = static_cast<uint32_t>(seed ^ (seed >> 32));
+  m_engine.SetSeed(seed32 != 0 ? seed32 : 1); // TRandom3 treats 0 as "seed from the clock"
 
   edm4hep::CalorimeterHitCollection digiHits;
   edm4hep::CaloHitSimCaloHitLinkCollection links;
@@ -103,7 +92,7 @@ SimulateSiPMwithContribOutput SimulateSiPMwithContrib::operator()(const edm4hep:
       double thisTime = time;
       // if it is a scintillation hit, add scintillation decay time
       if (!m_isCherenkov) {
-        thisTime += m_rndmExp.shoot();
+        thisTime += m_engine.Exp(m_scintDecaytime.value());
       }
 
       for (unsigned int pe = 0; pe < npe; pe++) {

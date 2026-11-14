@@ -9,14 +9,14 @@
 
 #include "k4FWCore/Transformer.h"
 
-#include "GaudiKernel/IRndmGenSvc.h"
-#include "GaudiKernel/RndmGenerators.h"
 #include "GaudiKernel/ToolHandle.h"
 
 // geometry (needed for timing, based on the distance btn the step and the rear end of the fiber)
 #include "detectorSegmentations/GridDRcalo_k4geo.h"
 #include "k4Interface/IGeoSvc.h"
 #include "k4Interface/IUniqueIDGenSvc.h"
+
+#include "TRandom3.h"
 
 // Check for SiPMSensor header location (similar to how DigiSiPM handles this)
 #if __has_include("SiPMSensor.h")
@@ -58,10 +58,10 @@ public:
 private:
   std::vector<double> integral(const std::vector<double>& wavelen, const std::vector<double>& yval) const;
 
-  // Random Number Service
-  SmartIF<IRndmGenSvc> m_randSvc;
-  Rndm::Numbers m_rndmUniform;
-  Rndm::Numbers m_rndmExp;
+  // Per-event engine for the draws made by this algorithm (photon statistics, wavelength,
+  // absorption, scintillation time). Reseeded from UniqueIDGenSvc at every event so that the
+  // result for an event does not depend on the other events processed in the job.
+  inline static thread_local TRandom3 m_engine;
 
   // requires GeoSvc and segmentation to estimate timing & attenuation
   SmartIF<IGeoSvc> m_geoSvc;

@@ -12,9 +12,9 @@
 #include "k4FWCore/Transformer.h"
 #include "k4Interface/IUniqueIDGenSvc.h"
 
+#include "TRandom3.h"
+
 // Gaudi includes
-#include "GaudiKernel/IRndmGenSvc.h"
-#include "GaudiKernel/RndmGenerators.h"
 #include "GaudiKernel/ToolHandle.h"
 
 // Check for SiPMSensor header location (similar to how DigiSiPM handles this)
@@ -62,9 +62,10 @@ private:
   // integral function for the wavelength random generation
   std::vector<double> integral(const std::vector<double>& wavelen, const std::vector<double>& yval) const;
 
-  // Random Number Service
-  SmartIF<IRndmGenSvc> m_randSvc;
-  Rndm::Numbers m_rndmUniform;
+  // Per-event engine for the draws made by this algorithm (photon statistics, wavelength,
+  // absorption, scintillation time). Reseeded from UniqueIDGenSvc at every event so that the
+  // result for an event does not depend on the other events processed in the job.
+  inline static thread_local TRandom3 m_engine;
 
   // SiPM sensor model
   // unique ID service, used to seed the SiPM simulation for every event

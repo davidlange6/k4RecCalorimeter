@@ -21,19 +21,6 @@ StatusCode SimulateSiPMwithOpticalPhoton::initialize() {
   if (sc.isFailure())
     return sc;
 
-  // Initialize random services
-  m_randSvc = service("RndmGenSvc", false);
-
-  if (!m_randSvc) {
-    error() << "Couldn't get RndmGenSvc!" << endmsg;
-    return StatusCode::FAILURE;
-  }
-
-  if (m_rndmUniform.initialize(m_randSvc, Rndm::Flat(0., 1.)).isFailure()) {
-    error() << "Couldn't initialize RndmGenSvc!" << endmsg;
-    return StatusCode::FAILURE;
-  }
-
   m_uidSvc = service<IUniqueIDGenSvc>("UniqueIDGenSvc", true);
   if (!m_uidSvc) {
     error() << "Unable to get UniqueIDGenSvc" << endmsg;
@@ -107,6 +94,8 @@ SimulateSiPMwithOpticalPhotonOutput SimulateSiPMwithOpticalPhoton::operator()(
   // on the processing order of the events and is reproducible from job to job
   const uint64_t seed = m_uidSvc->getUniqueID(headers, name());
   m_sensor->rng().seed(seed != 0 ? seed : 1); // a zero seed is not allowed by SimSiPM
+  const uint32_t seed32 = static_cast<uint32_t>(seed ^ (seed >> 32));
+  m_engine.SetSeed(seed32 != 0 ? seed32 : 1); // TRandom3 treats 0 as "seed from the clock"
 
   // Create output collections
   edm4hep::TimeSeriesCollection waveforms;
@@ -187,7 +176,7 @@ SimulateSiPMwithOpticalPhotonOutput SimulateSiPMwithOpticalPhoton::operator()(
         vecTimes.emplace_back(timeBin - minTime); // shift to non-negative time
 
         // generate wavelength
-        const double randval = integralSpectrum.back() * m_rndmUniform.shoot();
+        const double randval = integralSpectrum.back() * m_engine.Rndm();
         unsigned xhigh = 1;
 
         for (; xhigh < integralSpectrum.size() - 1; xhigh++) {
