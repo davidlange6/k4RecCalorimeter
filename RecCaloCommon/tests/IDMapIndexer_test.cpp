@@ -33,6 +33,8 @@ using mapkey_span = std::span<const mapkey_t>;
 
 //************************************************************************
 
+namespace {
+
 // ecal barrel
 void test1() {
   std::vector<mapkey_t> ids = make_ecalb_ids();
@@ -99,6 +101,8 @@ void test2() {
     assert(map.index(ids[i]) == i);
   }
 }
+
+} // namespace
 
 int main() {
   test1();
