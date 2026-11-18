@@ -7,6 +7,8 @@
  */
 
 
+namespace {
+
 const char* const ecale_descstr = "system:4,cryo:1,type:3,subtype:3,side:-2,wheel:3,layer:12,module:11,rho:8,z:8";
 
 
@@ -98,3 +100,5 @@ std::vector<mapkey_t> make_ecale_ids()
   std::ranges::sort (ids);
   return ids;
 }
+
+} // namespace

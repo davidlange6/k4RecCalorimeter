@@ -7,6 +7,8 @@
  */
 
 
+namespace {
+
 const unsigned int hcalb_numLayers = 13;
 const char* const hcalb_descstr = "system:4,layer:5,row:9,theta:9,phi:10";
 
@@ -57,3 +59,5 @@ std::vector<mapkey_t> make_hcalb_ids()
   std::ranges::sort (ids);
   return ids;
 }
+
+} // namespace

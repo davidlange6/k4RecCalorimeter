@@ -31,7 +31,9 @@ using payload_t = uint32_t;
 // Very simple RNG that should be repeatable across architectures.
 //
 
-static const uint32_t rngmax = static_cast<uint32_t>(-1);
+namespace {
+
+const uint32_t rngmax = static_cast<uint32_t>(-1);
 
 inline uint32_t rng_seed(uint32_t& seed) {
   seed = (1664525 * seed + 1013904223);
@@ -90,6 +92,8 @@ void test1(mapkey_span ids) {
   }
   assert(ntry > 0);
 }
+
+} // namespace
 
 //*******************************************************************
 // Run performance tests comparing IDMap with other map types.
@@ -408,6 +412,8 @@ void Tester<LOOKUP>::test_rand(size_t n) {
   }
 }
 
+namespace {
+
 template <class TESTER>
 size_t dotest(const char* name, mapkey_span ids, size_t n) {
   TESTER t(name, ids);
@@ -436,6 +442,8 @@ size_t perftest(bool barrel, mapkey_span ids, size_t n) {
     ret += dotest<Tester<ArrLookup>>("simple array", ids, n);
   return ret;
 }
+
+} // namespace
 
 //*******************************************************************
 

@@ -7,6 +7,8 @@
  */
 
 
+namespace {
+
 const unsigned int ecalb_numLayers = 11;
 const char* const ecalb_descstr = "system:4,cryo:1,type:3,subtype:3,layer:8,module:11,theta:10";
 
@@ -48,3 +50,5 @@ std::vector<mapkey_t> make_ecalb_ids()
   std::ranges::sort (ids);
   return ids;
 }
+
+} // namespace
