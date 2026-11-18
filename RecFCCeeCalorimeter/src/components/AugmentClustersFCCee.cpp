@@ -159,6 +159,7 @@ StatusCode AugmentClustersFCCee::initialize() {
   return StatusCode::SUCCESS;
 }
 
+namespace {
 // for all cells in a certain layer: vec A is theta_id, vec B is E_cell
 // make a 1D projection to theta: sum up the E_cell over modules with the same theta_id
 // then sort the theta vec (for finding theta neighbors), update the E vec simultaneously
@@ -191,6 +192,7 @@ std::pair<std::vector<int>, std::vector<double>> MergeSumAndSort(const std::vect
   }
   return std::make_pair(vec_1, vec_2);
 }
+} // namespace
 
 StatusCode AugmentClustersFCCee::finalize() { return Gaudi::Algorithm::finalize(); }
 
