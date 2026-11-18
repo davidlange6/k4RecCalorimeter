@@ -50,6 +50,8 @@ bool DummyCellConstantsSvc::putAnyObj(const std::string& key, std::any&& obj) {
 
 //************************************************************************
 
+namespace {
+
 void test1(mapkey_span ecalb_ids, mapkey_span hcalb_ids) {
   using Indexer_t = k4::recCalo::IDMapIndexer<3>;
   using IDMap_t = Indexer_t::IDMap_t;
@@ -122,6 +124,8 @@ void test1(mapkey_span ecalb_ids, mapkey_span hcalb_ids) {
   EXPECT_EXCEPTION("MultiIndexerException: bad indexer returns out-of-range detID 40",
                    k4::recCalo::MultiIndexer map4(4, indexers4, constsSvc));
 }
+
+} // namespace
 
 int main() {
   std::vector<mapkey_t> ecalb_ids = make_ecalb_ids();
